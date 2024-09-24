@@ -329,5 +329,5 @@ def print_at_position(x, y, text, width=None):
 
 
 if __name__ == "__main__":
-    # read_parse_file("./ja_out.v")
-    read_parse_file('./adder_and_or.v')
+    read_parse_file("./test/ja_out.v")
+    read_parse_file('./test/adder_and_or.v')
