@@ -5,6 +5,9 @@ from enum import Enum
 from collections import defaultdict
 import json
 
+from atpg import ATPG  
+
+
 gate = Enum("GATE", ["BUF", "NAND", "NOR", "OR", "NOT", "DFF", "DFFSR"])
 
 comment_re = r"\(\*.*?\*\)"
@@ -103,7 +106,11 @@ def read_parse_file(filepath):
             inp = input(f"Enter the input {i}: ")
             if inp.lower() == "q":
                 return 0
-            dict_inputs[i] = int(inp)
+            if not (inp =='x' or inp == 'D' or inp =='~D'):
+                dict_inputs[i] = int(inp)
+            else:
+                dict_inputs[i] = inp
+
 
         evaluate_graph(INPUTS, gate_level_map, gates_dict, dict_inputs)
 
@@ -310,7 +317,7 @@ def evaluate_graph(inputs, gate_level_graph, gates_dict, wires):
 
             gi_values = [wires[i] for i in gi]
 
-            wires[go[0]] = evaluate_gate(gtype, gi_values)
+            wires[go[0]] = ATPG.evaluate_gate(gtype, gi_values)
 
             print("   " * (level + 2) + f"{go[0]} :   {wires[go[0]]}")
 
