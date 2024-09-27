@@ -1,4 +1,5 @@
 """Module which return the levelised gate level map along with the gates map and wires map"""
+
 import os
 import re
 import time
@@ -7,8 +8,6 @@ from enum import Enum
 from collections import defaultdict
 import json
 import textwrap
-
-
 
 
 from atpg import ATPG
@@ -108,9 +107,10 @@ class Parser:
             print("-" * 10, "WIRES_MAP", "_" * 10)
             print(json.dumps(wires_map, indent=4))
 
-            self.gate_level_map = self.level_graph(inputs, outputs, gates_map, wires_map)
-            
-    
+            self.gate_level_map = self.level_graph(
+                inputs, outputs, gates_map, wires_map
+            )
+
     def simulate(self):
         print("--" * 20)
         print("\n\n Netlist Successfully Parsed.\n Entering Simulation...")
@@ -126,9 +126,9 @@ class Parser:
                     return 0
                 dict_inputs[i] = int(inp)
 
-            self.evaluate_graph(self.INPUTS, self.gate_level_map, self.gates_map, dict_inputs)
-
-
+            self.evaluate_graph(
+                self.INPUTS, self.gate_level_map, self.gates_map, dict_inputs
+            )
 
     @staticmethod
     def parse_gates(code, wires_dict):
@@ -183,7 +183,7 @@ class Parser:
         """Returns the levelized map"""
         gate_level_map = {}
 
-        print("--"*10)
+        print("--" * 10)
         print("[INFO]: LEVELISING THE GATES.\n")
         level = 0
         while outputs:
@@ -241,7 +241,6 @@ class Parser:
             new_inputs = []
             level += 1
 
-
             if outputs:
                 for gate in gate_level_map[level - 1]:
                     gate_dict = gates_dict[gate]
@@ -249,15 +248,17 @@ class Parser:
                     for output_wire in gate_dict["outputs"]:
                         if output_wire in outputs:
                             outputs.remove(output_wire)
-                        elif output_wire not in new_inputs and output_wire not in inputs:
+                        elif (
+                            output_wire not in new_inputs and output_wire not in inputs
+                        ):
                             new_inputs.append(output_wire)
 
             inputs.extend(new_inputs)
 
             print("[LEVEL]     Current Gate Level Map:")
-            non_idented_output= json.dumps(gate_level_map, indent=3)
+            non_idented_output = json.dumps(gate_level_map, indent=3)
             print(textwrap.indent(non_idented_output, "[LEVEL]"))
-            print("=="*10)
+            print("==" * 10)
 
         return gate_level_map
 
@@ -326,8 +327,6 @@ class Parser:
                 print("   " * (level + 2) + f"{go[0]} :   {wires[go[0]]}")
 
 
-
-
 def get_gate_params(gate):
     """Returns a dict containing the inputs and outputs of the gate."""
     gate_params = {
@@ -344,10 +343,9 @@ def get_gate_params(gate):
     return gate_params.get(gate, {"inputs": [], "outputs": []})
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cwd = os.getcwd()
-    file_name = './ja_out.v'
+    file_name = "./ja_out.v"
     parser = Parser(file_name)
     parser.read_parse_file()
     parser.simulate()
-

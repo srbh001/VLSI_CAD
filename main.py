@@ -1,10 +1,9 @@
 from atpg import ATPG, Parser
 
 
-
 def main():
-    #file_path = input("Enter the file_name")
-    
+    # file_path = input("Enter the file_name")
+
     file_path = "./test/ja_out.v"
 
     parser = Parser(file_path)
@@ -18,7 +17,6 @@ def main():
     parser.simulate()
 
     # TODO: Add ATPG and test vectors here.
-
 
 
 if __name__ == "__main__":

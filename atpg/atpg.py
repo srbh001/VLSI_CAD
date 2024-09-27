@@ -9,7 +9,6 @@ import json
 inversion = {"D": "~D", "~D": "D", "x": "x"}
 
 
-
 class ATPG:
     """
     The ATPG (Automatic Test Pattern Generation) class implements the PODEM (Path-Oriented Decision Making) algorithm to generate test vectors for fault detection in digital circuits.
@@ -21,16 +20,15 @@ class ATPG:
 
     Methods:
         __init__: Initializes the ATPG class with levelized gates, a gate map, and a wire map.
-        
+
         get_objective: Determines the fault detection objective for a given gate as part of the PODEM algorithm. This involves identifying necessary input conditions to activate and propagate the fault.
-        
+
         backtrace: Implements the backtrace step of the PODEM algorithm, tracing from a fault objective to determine the required input assignments to achieve fault activation and propagation.
-        
+
         x_path_check: Checks for the existence of an X-path, a path that may allow fault propagation, which is critical in determining the success of the test vector.
-        
+
         evaluate_gate: A static method that computes the output of a given gate based on its inputs, supporting five-valued logic (1, 0, D, ~D, x), and is used during fault simulation within the PODEM process.
     """
-
 
     def __init__(self, levelized_gates, gates_map, wires_map):
         self.levelized_gates = levelized_gates
@@ -49,7 +47,7 @@ class ATPG:
         pass
 
     @staticmethod
-    def evaluate_gate( gate, inputs=[]):
+    def evaluate_gate(gate, inputs=[]):
         """
         Evaluate the output of a single gate given its inputs.
         Also, supports the 'x', 'D', or '~D' state for the input.
@@ -90,13 +88,12 @@ class ATPG:
                 return "D"
 
             elif inputs[0] == "x" or inputs[1] == "x":
-                return "x" 
+                return "x"
 
             elif inputs[0] == "~D" or inputs[1] == "~D":
                 return "~D"  # only possible other input is 1
 
             return inputs[0] & inputs[1]
-
 
         elif gate == "OR":
             if inputs[0] == 1 or inputs[1] == 1:
@@ -118,44 +115,43 @@ class ATPG:
             if inputs[0] == "x" or inputs[1] == "x":
                 return "x"
 
-            elif inputs[0] == 'D':
+            elif inputs[0] == "D":
                 if inputs[1] == 1:
-                    return '~D'
+                    return "~D"
                 elif inputs[1] == 0:
-                    return 'D'
+                    return "D"
                 elif inputs[1] == "D":
                     return 0
-                elif inputs[1]=="~D":
+                elif inputs[1] == "~D":
                     return 1
             elif inputs[1] == "D":
                 if inputs[0] == 1:
-                    return '~D'
+                    return "~D"
                 elif inputs[0] == 0:
-                    return 'D'
+                    return "D"
                 elif inputs[0] == "D":
                     return 0
-                elif inputs[0]=="~D":
+                elif inputs[0] == "~D":
                     return 1
 
             elif inputs[1] == "~D":
                 if inputs[0] == 1:
-                    return 'D'
+                    return "D"
                 elif inputs[0] == 0:
-                    return 'D'
+                    return "D"
                 elif inputs[0] == "D":
                     return 1
-                elif inputs[0]=="~D":
+                elif inputs[0] == "~D":
                     return 0
 
-                    
             elif inputs[0] == "~D":
                 if inputs[1] == 1:
-                    return 'D'
+                    return "D"
                 elif inputs[1] == 0:
-                    return 'D'
+                    return "D"
                 elif inputs[1] == "D":
                     return 1
-                elif inputs[1]=="~D":
+                elif inputs[1] == "~D":
                     return 0
 
             return inputs[0] ^ inputs[1]
