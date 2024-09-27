@@ -30,7 +30,6 @@ class Parser:
         self.file_path = filepath
         self.INPUTS = {}
         self.gates_level_map = {}
-        self.gates_dict = {}
         self.wires_map = {}
 
     def read_parse_file(self):
