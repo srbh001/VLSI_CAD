@@ -18,7 +18,7 @@ input_output_re = re.compile(r"(input|output|inout)\s*(?:\[\d+:\d+\])?\s*(\w+);"
 
 
 def read_parse_file(filepath):
-    gate_level_map ={}
+    gate_level_map = {}
     INPUTS = []
     with open(filepath, "r") as f:
         code = []
@@ -93,8 +93,7 @@ def read_parse_file(filepath):
 
         gate_level_map = level_graph(inputs, outputs, gates_dict, wires_map)
 
-
-    print("--"*20)
+    print("--" * 20)
     print("\n\n Netlist Successfully Parsed.\n Entering Simulation...")
     print("\n   Options Only Enter 0 or 1 for inputs")
     print("   HELP: Enter q to exit\n\n")
@@ -102,12 +101,11 @@ def read_parse_file(filepath):
     while True:
         for i in INPUTS:
             inp = input(f"Enter the input {i}: ")
-            if inp.lower() == 'q':
+            if inp.lower() == "q":
                 return 0
             dict_inputs[i] = int(inp)
 
         evaluate_graph(INPUTS, gate_level_map, gates_dict, dict_inputs)
-
 
 
 def get_gate_params(gate):
@@ -116,9 +114,9 @@ def get_gate_params(gate):
         "BUF": {"inputs": ["A"], "outputs": ["Y"]},
         "NOT": {"inputs": ["A"], "outputs": ["Y"]},
         "NAND": {"inputs": ["A", "B"], "outputs": ["Y"]},
-        "AND" :{"inputs":["A", "B"], "outputs":["Y"]},
-        "OR" :{"inputs":["A", "B"], "outputs":["Y"]},
-        "XOR" :{"inputs":["A", "B"], "outputs":["Y"]},
+        "AND": {"inputs": ["A", "B"], "outputs": ["Y"]},
+        "OR": {"inputs": ["A", "B"], "outputs": ["Y"]},
+        "XOR": {"inputs": ["A", "B"], "outputs": ["Y"]},
         "NOR": {"inputs": ["A", "B"], "outputs": ["Y"]},
         "DFF": {"inputs": ["C", "D"], "outputs": ["Q"]},
         "DFFSR": {"inputs": ["C", "D", "S", "R"], "outputs": ["Q"]},
@@ -267,14 +265,13 @@ def evaluate_gate(gate, inputs=[]):
         return 1 - (inputs[0] & inputs[1])
 
     elif gate == "AND":
-        return (inputs[0] & inputs[1])
+        return inputs[0] & inputs[1]
 
     elif gate == "OR":
-        return (inputs[0] | inputs[1])
-    
-    elif gate == "XOR":
-        return (inputs[0] ^ inputs[1])
+        return inputs[0] | inputs[1]
 
+    elif gate == "XOR":
+        return inputs[0] ^ inputs[1]
 
     elif gate == "NOR":
         return 1 - (inputs[0] | inputs[1])
@@ -299,12 +296,11 @@ def evaluate_gate(gate, inputs=[]):
 
 
 def evaluate_graph(inputs, gate_level_graph, gates_dict, wires):
-    
-    max_level = 2*max([i for i in gate_level_graph])
-    max_height = 4*max([len(gate_level_graph[i]) for i in gate_level_graph])
 
-    HEIGHT = 2*max_height
+    max_level = 2 * max([i for i in gate_level_graph])
+    max_height = 4 * max([len(gate_level_graph[i]) for i in gate_level_graph])
 
+    HEIGHT = 2 * max_height
 
     for level in gate_level_graph:
         for gate in gate_level_graph[level]:
@@ -314,20 +310,20 @@ def evaluate_graph(inputs, gate_level_graph, gates_dict, wires):
 
             gi_values = [wires[i] for i in gi]
 
-            
             wires[go[0]] = evaluate_gate(gtype, gi_values)
 
             print("   " * (level + 2) + f"{go[0]} :   {wires[go[0]]}")
 
+
 def print_at_position(x, y, text, width=None):
     print(f"\033[{y};1H", end="")
-    
+
     if width:
         text = text[:width].ljust(width)
-    
+
     print(text)
 
 
 if __name__ == "__main__":
-    read_parse_file("./test/ja_out.v")
-    read_parse_file('./test/adder_and_or.v')
+    #read_parse_file("./test/ja_out.v")
+    read_parse_file("./test/adder_and_or.v")
