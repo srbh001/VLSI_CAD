@@ -121,10 +121,15 @@ class Parser:
             print("[ERROR]: Invalid Graph. Error parsing the graph.")
         while True:
             for i in self.INPUTS:
+
                 inp = input(f"Enter the input {i}: ")
                 if inp.lower() == "q":
                     return 0
-                dict_inputs[i] = int(inp)
+
+                if not (inp =='x' or inp == 'D' or inp =='~D'):
+                    dict_inputs[i] = int(inp)
+                else:
+                    dict_inputs[i] = inp
 
             self.evaluate_graph(
                 self.INPUTS, self.gate_level_map, self.gates_map, dict_inputs
