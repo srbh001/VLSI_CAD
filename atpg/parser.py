@@ -1,4 +1,5 @@
 """Module which return the levelised gate level map along with the gates map and wires map"""
+import os
 import re
 import time
 import sys
@@ -6,6 +7,9 @@ from enum import Enum
 from collections import defaultdict
 import json
 import textwrap
+
+
+
 
 from atpg import ATPG
 
@@ -98,6 +102,7 @@ class Parser:
             gates_map, wires_map = self.parse_gates(code, wires_dict)
             self.gates_map = gates_map
             self.wires_map = wires_map
+            self.INPUTS = INPUTS
 
             print("-" * 10, "GATES_DICT", "_" * 10)
             print(json.dumps(gates_map, indent=4))
@@ -105,6 +110,7 @@ class Parser:
             print(json.dumps(wires_map, indent=4))
 
             self.gate_level_map = self.level_graph(inputs, outputs, gates_map, wires_map)
+            
     
     def simulate(self):
         print("--" * 20)
@@ -121,7 +127,7 @@ class Parser:
                     return 0
                 dict_inputs[i] = int(inp)
 
-            self.evaluate_graph(self.INPUTS, self.gate_level_map, self.gates_dict, dict_inputs)
+            self.evaluate_graph(self.INPUTS, self.gate_level_map, self.gates_map, dict_inputs)
 
 
 
@@ -179,11 +185,11 @@ class Parser:
         gate_level_map = {}
 
         print("--"*10)
-        print("[INFO]: LEVELISING THE GATES.")
+        print("[INFO]: LEVELISING THE GATES.\n")
         level = 0
         while outputs:
-            print("[LEVELISING]:     Current Outputs: ", outputs)
-            print("[LEVELISING]:     Current Inputs: ", inputs)
+            print("[LEVEL]:     Current Outputs: ", outputs)
+            print("[LEVEL]:     Current Inputs: ", inputs)
 
             # Iterate over a copy of inputs to avoid modifying the list while iterating
             inputs_to_delete = []
@@ -249,9 +255,9 @@ class Parser:
 
             inputs.extend(new_inputs)
 
-            print("[LEVELISING]     Current Gate Level Map:")
+            print("[LEVEL]     Current Gate Level Map:")
             non_idented_output= json.dumps(gate_level_map, indent=3)
-            print(textwrap.indent(non_idented_output, "[LEVELISING]"))
+            print(textwrap.indent(non_idented_output, "[LEVEL]"))
             print("=="*10)
 
         return gate_level_map
@@ -340,7 +346,8 @@ def get_gate_params(gate):
 
 
 if __name__ == '__main__':
-    file_name = '../test/ja_out.v'
+    cwd = os.getcwd()
+    file_name = './ja_out.v'
     parser = Parser(file_name)
     parser.read_parse_file()
     parser.simulate()
