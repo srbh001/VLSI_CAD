@@ -30,6 +30,7 @@ class Parser:
         self.INPUTS = {}
         self.gates_level_map = {}
         self.wires_map = {}
+        self.state_vars = {} # Store the variables for DFF/DFFSR.
 
     def read_parse_file(self):
         filepath = self.file_path
@@ -97,7 +98,7 @@ class Parser:
                 #     rhs = assign_match.group(2)
                 #     wires_dict[lhs] = {"type": "assign", "source": rhs}
 
-            gates_map, wires_map = self.parse_gates(code, wires_dict)
+            gates_map, wires_map = self.parse_gates(code, wires_dict,self.state_vars)
             self.gates_map = gates_map
             self.wires_map = wires_map
             self.INPUTS = INPUTS
@@ -132,11 +133,11 @@ class Parser:
                     dict_inputs[i] = inp
 
             self.evaluate_graph(
-                self.INPUTS, self.gate_level_map, self.gates_map, dict_inputs
+                self.INPUTS, self.gate_level_map, self.gates_map, dict_inputs, self.state_vars
             )
 
     @staticmethod
-    def parse_gates(code, wires_dict):
+    def parse_gates(code, wires_dict,state_vars):
         gate_re = re.compile(r"(\w+)\s+(\w+)\s*\(\s*")
         wire_re = re.compile(r"\.(\w+)\((\w+)\)")
 
@@ -167,7 +168,8 @@ class Parser:
                     if wire_match:
                         pin_type = wire_match.group(1)
                         wire_name = wire_match.group(2)
-
+                        
+                        
                         if pin_type in gate_params["inputs"]:
                             gates_dict[gate_no]["inputs"].append(wire_name)
                             wires_dict[wire_name][str(gate_no)] = "input"
@@ -180,7 +182,12 @@ class Parser:
 
                     if ");" in code[j]:
                         break
-
+                # NOTE: The inputs for DFF and DFFSR where order is considered for diff inputs pins
+                # C = 0 and D= 0 for DFF initial states.
+                # inputs[1] = D
+                if gate_type == "DFF" or "DFFSR":
+                    state_vars[gate_no]={"C":0,"D":0}
+                    
         return gates_dict, wires_dict
 
     @staticmethod
@@ -261,7 +268,7 @@ class Parser:
             inputs.extend(new_inputs)
 
             print("[LEVEL]     Current Gate Level Map:")
-            non_idented_output = json.dumps(gate_level_map, indent=3)
+            non_idented_output = json.dumps(gate_level_map, indent=4)
             print(textwrap.indent(non_idented_output, "[LEVEL]"))
             print("==" * 10)
 
@@ -312,7 +319,7 @@ class Parser:
             raise ValueError(f"Unknown gate: {gate}")
 
     @staticmethod
-    def evaluate_graph(inputs, gate_level_graph, gates_dict, wires):
+    def evaluate_graph(inputs, gate_level_graph, gates_dict, wires, state_vars):
 
         max_level = 2 * max([i for i in gate_level_graph])
         max_height = 4 * max([len(gate_level_graph[i]) for i in gate_level_graph])
@@ -326,8 +333,23 @@ class Parser:
                 gtype = gates_dict[gate]["gate_type"]
 
                 gi_values = [wires[i] for i in gi]
+                
+                if not (gtype == "DFF" or gtype =="DFFSR"):
+                    wires[go[0]] = ATPG.evaluate_gate(gtype, gi_values)
 
-                wires[go[0]] = ATPG.evaluate_gate(gtype, gi_values)
+                else:
+                    if gtype == "DFF":
+                        c_prev = state_vars[gate]["C"]
+                        d_prev = state_vars[gate]["D"]
+                        c = gi_values[0]
+                        state_vars[gate]["C"]= c
+                        d = gi_values[1]
+                        if c and not c_prev:
+                            state_vars[gate]["D"] = d 
+                            wires[go[0]] = d_prev 
+                        else:
+                            wires[go[0]] = d_prev
+
 
                 print("   " * (level + 2) + f"{go[0]} :   {wires[go[0]]}")
 

@@ -4,7 +4,7 @@ from atpg import ATPG, Parser
 def main():
     # file_path = input("Enter the file_name")
 
-    file_path = "./test/ja_out.v"
+    file_path = "./test/dff_c.v"
 
     parser = Parser(file_path)
 
