@@ -28,9 +28,9 @@ class Parser:
     def __init__(self, filepath) -> None:
         self.file_path = filepath
         self.INPUTS = {}
-        self.gates_level_map = {}
+        self.gate_level_map = {}
         self.wires_map = {}
-        self.state_vars = {} # Store the variables for DFF/DFFSR.
+        self.state_vars = {}  # Store the variables for DFF/DFFSR.
 
     def read_parse_file(self):
         filepath = self.file_path
@@ -92,25 +92,27 @@ class Parser:
                         wires_dict[io_name] = {}
 
                 # TODO: deal with this later
-                # assign_match = re.search(assign_re, line)
-                # if assign_match:
-                #     lhs = assign_match.group(1)
-                #     rhs = assign_match.group(2)
-                #     wires_dict[lhs] = {"type": "assign", "source": rhs}
+                # Assign statements could be replaced with normal wires they are later used as such - store wires as : Var[0]
+                # - Parse that and store that and replace every instance of that as a new_variable.
+                assign_match = re.search(assign_re, line)
+                if assign_match:
+                    lhs = assign_match.group(1)
+                    rhs = assign_match.group(2)
+                    wires_dict[lhs] = {"type": "assign", "source": rhs}
 
-            gates_map, wires_map = self.parse_gates(code, wires_dict,self.state_vars)
-            self.gates_map = gates_map
-            self.wires_map = wires_map
-            self.INPUTS = INPUTS
-
-            print("-" * 10, "GATES_DICT", "_" * 10)
-            print(json.dumps(gates_map, indent=4))
-            print("-" * 10, "WIRES_MAP", "_" * 10)
-            print(json.dumps(wires_map, indent=4))
-
-            self.gate_level_map = self.level_graph(
-                inputs, outputs, gates_map, wires_map
-            )
+            # gates_map, wires_map = self.parse_gates(code, wires_dict, self.state_vars)
+            # self.gates_map = gates_map
+            # self.wires_map = wires_map
+            # self.INPUTS = INPUTS
+            #
+            # print("-" * 10, "GATES_DICT", "_" * 10)
+            # print(json.dumps(gates_map, indent=4))
+            # print("-" * 10, "WIRES_MAP", "_" * 10)
+            # print(json.dumps(wires_map, indent=4))
+            #
+            # self.gate_level_map = self.level_graph(
+            #     inputs, outputs, gates_map, wires_map
+            # )
 
     def simulate(self):
         print("--" * 20)
@@ -122,22 +124,25 @@ class Parser:
             print("[ERROR]: Invalid Graph. Error parsing the graph.")
         while True:
             for i in self.INPUTS:
-
                 inp = input(f"Enter the input {i}: ")
                 if inp.lower() == "q":
                     return 0
 
-                if not (inp =='x' or inp == 'D' or inp =='~D'):
+                if not (inp == "x" or inp == "D" or inp == "~D"):
                     dict_inputs[i] = int(inp)
                 else:
                     dict_inputs[i] = inp
 
             self.evaluate_graph(
-                self.INPUTS, self.gate_level_map, self.gates_map, dict_inputs, self.state_vars
+                self.INPUTS,
+                self.gate_level_map,
+                self.gates_map,
+                dict_inputs,
+                self.state_vars,
             )
 
     @staticmethod
-    def parse_gates(code, wires_dict,state_vars):
+    def parse_gates(code, wires_dict, state_vars):
         gate_re = re.compile(r"(\w+)\s+(\w+)\s*\(\s*")
         wire_re = re.compile(r"\.(\w+)\((\w+)\)")
 
@@ -153,6 +158,9 @@ class Parser:
                 if gate_no in gates_dict:
                     gate_no += 1
                     j += 1
+
+                if gate_type == "module":
+                    continue
                 gates_dict[gate_no] = {
                     "gate_type": gate_type,
                     "inputs": [],
@@ -168,8 +176,7 @@ class Parser:
                     if wire_match:
                         pin_type = wire_match.group(1)
                         wire_name = wire_match.group(2)
-                        
-                        
+
                         if pin_type in gate_params["inputs"]:
                             gates_dict[gate_no]["inputs"].append(wire_name)
                             wires_dict[wire_name][str(gate_no)] = "input"
@@ -186,8 +193,8 @@ class Parser:
                 # C = 0 and D= 0 for DFF initial states.
                 # inputs[1] = D
                 if gate_type == "DFF" or "DFFSR":
-                    state_vars[gate_no]={"C":0,"D":0}
-                    
+                    state_vars[gate_no] = {"C": 0, "D": 0}
+
         return gates_dict, wires_dict
 
     @staticmethod
@@ -320,7 +327,6 @@ class Parser:
 
     @staticmethod
     def evaluate_graph(inputs, gate_level_graph, gates_dict, wires, state_vars):
-
         max_level = 2 * max([i for i in gate_level_graph])
         max_height = 4 * max([len(gate_level_graph[i]) for i in gate_level_graph])
 
@@ -333,8 +339,8 @@ class Parser:
                 gtype = gates_dict[gate]["gate_type"]
 
                 gi_values = [wires[i] for i in gi]
-                
-                if not (gtype == "DFF" or gtype =="DFFSR"):
+
+                if not (gtype == "DFF" or gtype == "DFFSR"):
                     wires[go[0]] = ATPG.evaluate_gate(gtype, gi_values)
 
                 else:
@@ -342,14 +348,13 @@ class Parser:
                         c_prev = state_vars[gate]["C"]
                         d_prev = state_vars[gate]["D"]
                         c = gi_values[0]
-                        state_vars[gate]["C"]= c
+                        state_vars[gate]["C"] = c
                         d = gi_values[1]
                         if c and not c_prev:
-                            state_vars[gate]["D"] = d 
-                            wires[go[0]] = d_prev 
+                            state_vars[gate]["D"] = d
+                            wires[go[0]] = d_prev
                         else:
                             wires[go[0]] = d_prev
-
 
                 print("   " * (level + 2) + f"{go[0]} :   {wires[go[0]]}")
 

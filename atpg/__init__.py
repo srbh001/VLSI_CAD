@@ -1,4 +1,4 @@
 from .atpg import ATPG
 from .parser import Parser
 
-__all__ = ['ATPG', 'Parser']
+__all__ = ["ATPG", "Parser"]

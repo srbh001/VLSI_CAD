@@ -11,36 +11,36 @@ inversion = {"D": "~D", "~D": "D", "x": "x"}
 
 class ATPG:
     """
-    The ATPG (Automatic Test Pattern Generation) class implements the PODEM 
-    (Path-Oriented Decision Making) algorithm to generate test vectors for fault 
+    The ATPG (Automatic Test Pattern Generation) class implements the PODEM
+    (Path-Oriented Decision Making) algorithm to generate test vectors for fault
     detection in digital circuits.
 
     Attributes:
-        levelized_gates (list): A list of gates organized in levelized order 
+        levelized_gates (list): A list of gates organized in levelized order
         based on their evaluation dependencies.
-        
-        gates_dict (dict): A mapping of gate numbers to their respective gate 
+
+        gates_dict (dict): A mapping of gate numbers to their respective gate
         types and attributes.
-        
-        wires_map (dict): A mapping of wire names or numbers to the connections 
+
+        wires_map (dict): A mapping of wire names or numbers to the connections
         in the circuit.
 
     Methods:
-        __init__: Initializes the ATPG class with levelized gates, a gate map, 
+        __init__: Initializes the ATPG class with levelized gates, a gate map,
         and a wire map.
 
-        get_objective: Determines the fault detection objective for a given 
-        gate as part of the PODEM algorithm. 
+        get_objective: Determines the fault detection objective for a given
+        gate as part of the PODEM algorithm.
 
-        backtrace: Implements the backtrace step of the PODEM algorithm, 
-        tracing from a fault objective to determine the required input 
+        backtrace: Implements the backtrace step of the PODEM algorithm,
+        tracing from a fault objective to determine the required input
         assignments to achieve fault activation and propagation.
 
-        x_path_check: Checks for the existence of an X-path, a path that may 
+        x_path_check: Checks for the existence of an X-path, a path that may
         allow fault propagation.
 
-        evaluate_gate: Computes the output of a given 
-        gate based on its inputs, supporting five-valued logic (1, 0, D, ~D, 
+        evaluate_gate: Computes the output of a given
+        gate based on its inputs, supporting five-valued logic (1, 0, D, ~D,
         x).
     """
 
@@ -77,7 +77,6 @@ class ATPG:
             return 1 - inputs[0]
 
         elif gate == "NAND":
-
             if inputs[0] == 0 or inputs[1] == 0:
                 return 1
 
@@ -125,7 +124,6 @@ class ATPG:
             return 0
 
         elif gate == "XOR":
-
             if inputs[0] == "x" or inputs[1] == "x":
                 return "x"
 
@@ -171,7 +169,6 @@ class ATPG:
             return inputs[0] ^ inputs[1]
 
         elif gate == "NOR":
-
             if inputs[0] == 1 or inputs[1] == 1:
                 return 0
             elif inputs[0] == "x" or inputs[1] == "x":
