@@ -4,7 +4,7 @@ from atpg import ATPG, Parser
 def main():
     # file_path = input("Enter the file_name")
 
-    file_path = "./test/counter_assign.v"
+    file_path = "./test/adder_and_or.v"
 
     parser = Parser(file_path)
 

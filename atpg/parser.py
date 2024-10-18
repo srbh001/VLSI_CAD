@@ -28,7 +28,7 @@ class Parser:
     def __init__(self, filepath) -> None:
         self.file_path = filepath
         self.INPUTS = {}
-        self.gate_level_map = {}
+        self.gates_level_map = {}
         self.wires_map = {}
         self.state_vars = {}  # Store the variables for DFF/DFFSR.
 
@@ -92,27 +92,25 @@ class Parser:
                         wires_dict[io_name] = {}
 
                 # TODO: deal with this later
-                # Assign statements could be replaced with normal wires they are later used as such - store wires as : Var[0]
-                # - Parse that and store that and replace every instance of that as a new_variable.
-                assign_match = re.search(assign_re, line)
-                if assign_match:
-                    lhs = assign_match.group(1)
-                    rhs = assign_match.group(2)
-                    wires_dict[lhs] = {"type": "assign", "source": rhs}
+                # assign_match = re.search(assign_re, line)
+                # if assign_match:
+                #     lhs = assign_match.group(1)
+                #     rhs = assign_match.group(2)
+                #     wires_dict[lhs] = {"type": "assign", "source": rhs}
 
-            # gates_map, wires_map = self.parse_gates(code, wires_dict, self.state_vars)
-            # self.gates_map = gates_map
-            # self.wires_map = wires_map
-            # self.INPUTS = INPUTS
-            #
-            # print("-" * 10, "GATES_DICT", "_" * 10)
-            # print(json.dumps(gates_map, indent=4))
-            # print("-" * 10, "WIRES_MAP", "_" * 10)
-            # print(json.dumps(wires_map, indent=4))
-            #
-            # self.gate_level_map = self.level_graph(
-            #     inputs, outputs, gates_map, wires_map
-            # )
+            gates_map, wires_map = self.parse_gates(code, wires_dict, self.state_vars)
+            self.gates_map = gates_map
+            self.wires_map = wires_map
+            self.INPUTS = INPUTS
+
+            print("-" * 10, "GATES_DICT", "_" * 10)
+            print(json.dumps(gates_map, indent=4))
+            print("-" * 10, "WIRES_MAP", "_" * 10)
+            print(json.dumps(wires_map, indent=4))
+
+            self.gate_level_map = self.level_graph(
+                inputs, outputs, gates_map, wires_map
+            )
 
     def simulate(self):
         print("--" * 20)
@@ -158,9 +156,6 @@ class Parser:
                 if gate_no in gates_dict:
                     gate_no += 1
                     j += 1
-
-                if gate_type == "module":
-                    continue
                 gates_dict[gate_no] = {
                     "gate_type": gate_type,
                     "inputs": [],
