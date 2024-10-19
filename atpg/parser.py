@@ -8,7 +8,7 @@ from enum import Enum
 from collections import defaultdict
 import json
 import textwrap
-
+import copy
 
 from atpg import ATPG
 
@@ -22,12 +22,16 @@ input_re = r"input\s*(\[\d+:\d+\])?\s*([\w\d_]+)\s*;"
 output_re = r"output\s*(\[\d+:\d+\])?\s*([\w\d_]+)\s*;"
 assign_re = r"assign\s+(\w+)\s*=\s*(\w+);"
 input_output_re = re.compile(r"(input|output|inout)\s*(?:\[\d+:\d+\])?\s*(\w+);")
+multival_wire = r"wire\s*\[(\d+):\d+\]\s*(\w+)\s*;"
+multival_input = r"input\s*\[(\d+):\d+\]\s*(\w+)\s*;"
+multival_output = r"output\s*\[(\d+):\d+\]\s*(\w+)\s*;"
 
 
 class Parser:
     def __init__(self, filepath) -> None:
         self.file_path = filepath
         self.INPUTS = {}
+        self.OUTPUTS = {}
         self.gates_level_map = {}
         self.wires_map = {}
         self.state_vars = {}  # Store the variables for DFF/DFFSR.
@@ -36,6 +40,7 @@ class Parser:
         filepath = self.file_path
         gate_level_map = {}
         INPUTS = []
+        OUTPUTS = []
         with open(filepath, "r") as f:
             code = []
             lines = f.readlines()
@@ -87,6 +92,10 @@ class Parser:
                     elif io_type == "output":
                         if io_name not in outputs and io_name not in wires_dict:
                             outputs.append(io_name)
+
+                            if io_name not in OUTPUTS:
+                                OUTPUTS.append(io_name)
+
                             wires_dict[io_name] = {}
                     elif io_type == "inout":
                         wires_dict[io_name] = {}
@@ -98,18 +107,23 @@ class Parser:
                 #     rhs = assign_match.group(2)
                 #     wires_dict[lhs] = {"type": "assign", "source": rhs}
 
+            # --------------- Code cleaned and Wires dict initiated.
+
             gates_map, wires_map = self.parse_gates(code, wires_dict, self.state_vars)
             self.gates_map = gates_map
             self.wires_map = wires_map
             self.INPUTS = INPUTS
+            self.OUTPUTS = OUTPUTS
 
-            print("-" * 10, "GATES_DICT", "_" * 10)
-            print(json.dumps(gates_map, indent=4))
+            print("-" * 10, "GATES_MAP", "_" * 10)
+            print(json.dumps(self.gates_map, indent=4))
             print("-" * 10, "WIRES_MAP", "_" * 10)
-            print(json.dumps(wires_map, indent=4))
+            print(json.dumps(self.wires_map, indent=4))
 
+            copied_wires_map = copy.deepcopy(wires_map)
+            copied_gates_map = copy.deepcopy(gates_map)
             self.gate_level_map = self.level_graph(
-                inputs, outputs, gates_map, wires_map
+                inputs, outputs, copied_gates_map, copied_wires_map
             )
 
     def simulate(self):
@@ -156,6 +170,9 @@ class Parser:
                 if gate_no in gates_dict:
                     gate_no += 1
                     j += 1
+
+                if gate_type == "module":
+                    continue
                 gates_dict[gate_no] = {
                     "gate_type": gate_type,
                     "inputs": [],
@@ -201,8 +218,8 @@ class Parser:
         print("[INFO]: LEVELISING THE GATES.\n")
         level = 0
         while outputs:
-            print("[LEVEL]:     Current Outputs: ", outputs)
-            print("[LEVEL]:     Current Inputs: ", inputs)
+            # print("[LEVEL]:     Current Outputs: ", outputs)
+            # print("[LEVEL]:     Current Inputs: ", inputs)
 
             # Iterate over a copy of inputs to avoid modifying the list while iterating
             inputs_to_delete = []
@@ -269,10 +286,10 @@ class Parser:
 
             inputs.extend(new_inputs)
 
-            print("[LEVEL]     Current Gate Level Map:")
-            non_idented_output = json.dumps(gate_level_map, indent=4)
-            print(textwrap.indent(non_idented_output, "[LEVEL]"))
-            print("==" * 10)
+        print("[INFO]: Parser.level_graph : Final Levelised Gates Map")
+        non_idented_output = json.dumps(gate_level_map, indent=4)
+        print(textwrap.indent(non_idented_output, "        "))
+        print("===" * 10)
 
         return gate_level_map
 
