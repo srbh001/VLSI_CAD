@@ -260,7 +260,7 @@ class ATPG:
                 if inputs[0] == 1:
                     return "D"
                 elif inputs[0] == 0:
-                    return "~D"
+                    return "~~D"
                 elif inputs[0] == "D":
                     return 1
                 elif inputs[0] == "~D":
@@ -270,20 +270,30 @@ class ATPG:
                 if inputs[1] == 1:
                     return "D"
                 elif inputs[1] == 0:
-                    return "~D"
+                    return "~~D"
                 elif inputs[1] == "D":
                     return 1
                 elif inputs[1] == "~D":
                     return 0
 
             return inputs[0] ^ inputs[1]
-
+ 
         elif gate == "NOR":
             if inputs[0] == 1 or inputs[1] == 1:
                 return 0
             elif inputs[0] == "x" or inputs[1] == "x":
                 return "x"
-
+            elif input[0] == 0:
+                if(input[1] == "D"):
+                    return "~D"
+                elif(input[1] == "~D"):
+                    return "D"
+            elif input[1] == 0:
+                if(input[0] == "D"):
+                    return "~D"
+                elif(input[0] == "~D"):
+                    return "D"     
+                
             return 1 - (inputs[0] | inputs[1])
 
         elif gate == "DFF":
