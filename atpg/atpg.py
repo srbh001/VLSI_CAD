@@ -195,7 +195,9 @@ class ATPG:
                     cs_gates.extend(cs_gates_to_add)
         return False
 
-    def try_sensitize(self, fault, fault_location, pi_values, pis, value, i=0):
+    def try_sensitize(
+        self, fault, fault_location, pi_values, pis, value, i=0, results=None
+    ):
         """
         Recursively try to sensitize the fault by assigning '1' and '0' to the inputs.
 
@@ -211,6 +213,9 @@ class ATPG:
             dict: Updated pi_values if fault is sensitized, None otherwise.
         """
         # Base case: If we have processed all inputs, return None (no solution found)
+        #
+        if not results:
+            results = []
 
         print("[INFO]: Try-Sensitize: current PIs vals", pi_values)
         print("[INFO]: Fault Location and Value: ", fault_location, value)
@@ -227,28 +232,31 @@ class ATPG:
 
         if str(simulated_values[fault_location]) == value:
             pi_values[input_pi] = "1"
-            return pi_values  # Return the updated pi_values
+            pi_values_to_add = [pi_values]
+            results.extend(pi_values_to_add)
+            # return pi_values  # Return the updated pi_values
         elif simulated_values[fault_location] == "x":
             pi_values = self.try_sensitize(
-                fault, fault_location, new_pi_values, pis, value, i + 1
+                fault, fault_location, new_pi_values, pis, value, i + 1, results
             )
             if pi_values:
-                return pi_values
+                results.extend(pi_values)
+                # return pi_values
 
         new_pi_values[input_pi] = "0"
         simulated_values = self.implication_with_fault(new_pi_values, fault=None)
 
         if str(simulated_values[fault_location]) == value:
-            pi_values[input_pi] = "0"
-            return pi_values
+            # pi_values[input_pi] = "0"
+            results.extend([new_pi_values])
         elif simulated_values[fault_location] == "x":
             pi_values = self.try_sensitize(
-                fault, fault_location, new_pi_values, pis, value, i + 1
+                fault, fault_location, new_pi_values, pis, value, i + 1, results
             )
             if pi_values:
-                return pi_values
+                results.extend(pi_values)
 
-        return None
+        return results
 
     def sensitize_fault(self, fault_location, fault_value):
         """
@@ -304,6 +312,52 @@ class ATPG:
         print("[INFO]: Simulated Values: ", simulated_values)
 
         return simulated_values
+
+    def propagate_values_to_pos(self, fault, sensitization_inputs):
+        """Search for inputs which propagate the Error to the Primary Output"""
+        fault_location = fault.gate_no
+        fault_value = fault.error
+
+        po_values = {po: "x" for po in self.PO}
+
+        for inputs in sensitization_inputs:
+            if self.try_propagate_to_pos(fault, inputs):
+                print("[INFO]: Fault successfully propagated with inputs:", inputs)
+                return inputs  # Return the successful input configuration
+
+        print("[ERROR]: Unable to propagate fault to primary outputs")
+        return None  # If propagation is not successful
+
+    def try_propagate_to_pos(self, fault, inputs):
+        """
+        Attempt to propagate the fault by changing the 'x' values in the input.
+        First try setting each 'x' to '0', and if that fails, try '1'.
+        """
+
+        for wire, value in inputs.items():
+            if value == "x":
+                inputs[wire] = "0"
+                simulated_values = self.implication_with_fault(inputs, fault)
+                if self.check_primary_output_fault_propagation(simulated_values):
+                    return True
+
+                inputs[wire] = "1"
+                simulated_values = self.implication_with_fault(inputs, fault)
+                if self.check_primary_output_fault_propagation(simulated_values):
+                    return True
+
+                inputs[wire] = "x"
+
+        return False
+
+    def check_primary_output_fault_propagation(self, simulated_values):
+        pos = self.PO
+
+        for po in pos:
+            if simulated_values[po] == "D" or simulated_values[po] == "~D":
+                return True
+
+        return False
 
     def give_objective(gate_type):
         if gate_type == "AND":
