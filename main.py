@@ -84,8 +84,8 @@ def run_tests(parser):
             )
 
         def test_imply_with_fault(self):
-            fault = Fault("_02_", "D")
-            pi_values = {"a": "1", "b": "1", "carryin": "1"}
+            fault = Fault("_03_", "D")
+            pi_values = {"a": "1", "b": "0", "carryin": "0"}
             output = atpg.implication_with_fault(fault, pi_values)
             print(f"[INFO]: Imply with fault result: {output}")
 

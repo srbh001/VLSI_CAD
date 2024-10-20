@@ -92,7 +92,7 @@ class ATPG:
         if error == "D":
             objective = Objective(gate_no, "1", "D")
         elif error == "~D":
-            objective = Objective(gate_no, "1", "D")
+            objective = Objective(gate_no, "1", "~D")
         else:
             raise ValueError("[ERROR]: Invalid Error Type: ", error)
         return objective
@@ -195,9 +195,39 @@ class ATPG:
                     cs_gates.extend(cs_gates_to_add)
         return False
 
-    def generate_test_vector(self, fault_location, fault_value):
-        """Generate a test vector to detect a fault at the specified location."""
-        pass
+    # def generate_test_vector(self, fault_location, fault_value):
+    #     """Generate a test vector to detect a fault at the specified location."""
+    #
+    #     fault = Fault(fault_location, fault_value)
+    #     pi_values = {}
+    #     for i in self.PI:
+    #         pi_values[i] = "x"
+    #
+    #     po_values = {}
+    #     for i in self.PO:
+    #         po_values[i] = "x"
+    #
+    #     pi_stack = []
+    #     objectives = {}
+    #     while x_path_check(fault_location):
+    #         pis = self.backtrace(fault_location)
+    #         value = "1" if D else "0"
+    #         objectives[fault_location] = value
+    #
+    #         for i in pis:
+    #             pi_stack.push({})
+    #             new_pi_values = pi_values
+    #             new_pi_values[i] = "1"
+    #
+    #             simulated_values = implication_with_fault(fault, new_pi_values)
+    #             if simulated_values[fault_location] == "x":
+    #
+    #             if simulated_values[fault_location] == value:
+    #                 pi_values[i] = "1"
+    #                 # Fault was sensitized here at some values
+    #                 break
+    #
+    # def sensitize_fault(self, objectives):
 
     def implication_with_fault(self, fault, pi_values):
         """
@@ -217,6 +247,22 @@ class ATPG:
             primary_inputs, gate_level_map, gates_map, dict_inputs, state_vars
         )
         print("[INFO]: Simulated Values: ", simulated_values)
+
+        return simulated_values
+
+    def give_objective(gate_type):
+        if gate_type == "AND":
+            return ["1"]
+        elif gate_type == "OR":
+            return ["0"]
+        elif gate_type == "NAND":
+            return ["1"]
+        elif gate_type == "NOR":
+            return ["0"]
+        elif gate_type == "XOR":
+            return ["1", "0"]
+        elif gate_type == "XNOR":
+            return ["1", "0"]
 
     def __repr__(self):
         debug_info = [
