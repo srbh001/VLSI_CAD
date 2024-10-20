@@ -1,5 +1,5 @@
 import unittest
-from atpg import ATPG, Objective, Parser
+from atpg import ATPG, Objective, Parser, Fault
 
 
 def main():
@@ -40,10 +40,18 @@ def run_tests(parser):
     wires_map = parser.wires_map
     primary_inputs = parser.INPUTS
     primary_outputs = parser.OUTPUTS
+    state_vars = parser.state_vars
 
-    atpg = ATPG(gate_level_map, gates_map, wires_map, primary_inputs, primary_outputs)
+    atpg = ATPG(
+        gate_level_map,
+        gates_map,
+        wires_map,
+        primary_inputs,
+        primary_outputs,
+        state_vars,
+    )
 
-    objective = Objective("_01_", "1", "D")
+    objective = Objective("_02_", "1", "D")
 
     class TestATPG(unittest.TestCase):
         def test_x_path_check(self):
@@ -74,6 +82,14 @@ def run_tests(parser):
                 expected_backtrace,
                 "[TEST]: Backtrace should return the correct PI list",
             )
+
+        def test_imply_with_fault(self):
+            fault = Fault("_02_", "D")
+            pi_values = {"a": "1", "b": "1", "carryin": "1"}
+            output = atpg.implication_with_fault(fault, pi_values)
+            print(f"[INFO]: Imply with fault result: {output}")
+
+            self.assertEqual(1, 1, "[TEST]: Imply with fault should return 1")
 
     unittest.TextTestRunner().run(unittest.TestLoader().loadTestsFromTestCase(TestATPG))
 

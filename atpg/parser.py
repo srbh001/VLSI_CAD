@@ -10,7 +10,6 @@ import json
 import textwrap
 import copy
 
-from atpg import ATPG
 
 gate = Enum("GATE", ["BUF", "NAND", "NOR", "OR", "NOT", "DFF", "DFFSR"])
 
@@ -352,8 +351,12 @@ class Parser:
 
                 gi_values = [wires[i] for i in gi]
 
+                if go[0] in wires:
+                    # NOTE: Values are preset for the Fault Simulation and hene don't change
+                    continue
+
                 if not (gtype == "DFF" or gtype == "DFFSR"):
-                    wires[go[0]] = ATPG.evaluate_gate(gtype, gi_values)
+                    wires[go[0]] = Parser.evaluate_gate(gtype, gi_values)
 
                 else:
                     if gtype == "DFF":
@@ -369,6 +372,221 @@ class Parser:
                             wires[go[0]] = d_prev
 
                 print("   " * (level + 2) + f"{go[0]} :   {wires[go[0]]}")
+        print(wires)
+        return wires
+
+    @staticmethod
+    def evaluate_gate(gate, inputs=[]):
+        """
+        Evaluate the output of a single gate given its inputs.
+        Also, supports the 'x', 'D', or '~D' state for the input.
+        """
+
+        for i in range(len(inputs)):
+            try:
+                inputs[i] = int(inputs[i])
+            except ValueError:
+                continue
+
+        if gate == "BUF":
+            return inputs[0]
+
+        elif gate == "NOT":
+            if inputs[0] == "x" or inputs[0] == "D" or inputs[0] == "~D":
+                return inversion[inputs[0]]
+
+            return 1 - inputs[0]
+
+        elif gate == "NAND":
+            if inputs[0] == 0 or inputs[1] == 0:
+                return 1
+
+            elif inputs[0] == "x" or inputs[1] == "x":
+
+                return "x"
+
+            elif (inputs[0] == "D" and inputs[1] == "~D") or (
+                inputs[0] == "~D" and inputs[1] == "D"
+            ):
+                return 1
+
+            elif inputs[0] == "D" or inputs[1] == "D":
+                return "~D"
+            elif inputs[0] == "~D" or inputs[1] == "~D":
+                return "D"
+
+            return 1 - (inputs[0] & inputs[1])
+
+        elif gate == "AND":
+            if inputs[0] == 0 or inputs[1] == 0:
+                return 0
+
+            elif inputs[0] == "x" or inputs[1] == "x":
+                return "x"
+
+            elif (inputs[0] == "D" and inputs[1] == "~D") or (
+                inputs[0] == "~D" and inputs[1] == "D"
+            ):
+                return 0
+
+            elif inputs[0] == "D" or inputs[1] == "D":
+                return "D"
+
+            elif inputs[0] == "~D" or inputs[1] == "~D":
+                return "~D"
+            return inputs[0] & inputs[1]
+
+        elif gate == "OR":
+            if inputs[0] == 1 or inputs[1] == 1:
+                return 1
+
+            elif inputs[0] == "x" or inputs[1] == "x":
+                return "x"
+            elif (inputs[0] == "D" and inputs[1] == "~D") or (
+                inputs[0] == "~D" and inputs[1] == "D"
+            ):
+                return 1
+
+            elif inputs[0] == "~D" or inputs[1] == "~D":
+                return "~D"
+
+            elif inputs[0] == "D" or inputs[1] == "x":
+                return "D"
+
+            return 0
+
+        elif gate == "XOR":
+            if inputs[0] == "x" or inputs[1] == "x":
+                return "x"
+
+            elif inputs[0] == "D":
+                if inputs[1] == 1:
+                    return "~D"
+                elif inputs[1] == 0:
+                    return "D"
+                elif inputs[1] == "D":
+                    return 0
+                elif inputs[1] == "~D":
+                    return 1
+            elif inputs[1] == "D":
+                if inputs[0] == 1:
+                    return "~D"
+                elif inputs[0] == 0:
+                    return "D"
+                elif inputs[0] == "D":
+                    return 0
+                elif inputs[0] == "~D":
+                    return 1
+
+            elif inputs[1] == "~D":
+                if inputs[0] == 1:
+                    return "D"
+                elif inputs[0] == 0:
+                    return "~D"
+                elif inputs[0] == "D":
+                    return 1
+                elif inputs[0] == "~D":
+                    return 0
+
+            elif inputs[0] == "~D":
+                if inputs[1] == 1:
+                    return "D"
+                elif inputs[1] == 0:
+                    return "~D"
+                elif inputs[1] == "D":
+                    return 1
+                elif inputs[1] == "~D":
+                    return 0
+
+            return inputs[0] ^ inputs[1]
+
+        # modification: Added XNOR gate
+        elif gate == "XNOR":
+            if inputs[0] == "x" or inputs[1] == "x":
+                return "x"
+
+            elif inputs[0] == "D":
+                if inputs[1] == 1:
+                    return "D"
+                elif inputs[1] == 0:
+                    return "~D"
+                elif inputs[1] == "D":
+                    return 1
+                elif inputs[1] == "~D":
+                    return 0
+            elif inputs[1] == "D":
+                if inputs[0] == 1:
+                    return "D"
+                elif inputs[0] == 0:
+                    return "~D"
+                elif inputs[0] == "D":
+                    return 1
+                elif inputs[0] == "~D":
+                    return 0
+
+            elif inputs[1] == "~D":
+                if inputs[0] == 1:
+                    return "~D"
+                elif inputs[0] == 0:
+                    return "D"
+                elif inputs[0] == "D":
+                    return 0
+                elif inputs[0] == "~D":
+                    return 1
+
+            elif inputs[0] == "~D":
+                if inputs[1] == 1:
+                    return "~D"
+                elif inputs[1] == 0:
+                    return "D"
+                elif inputs[1] == "D":
+                    return 0
+                elif inputs[1] == "~D":
+                    return 1
+
+            return 1 - (inputs[0] ^ inputs[1])
+
+        elif gate == "NOR":
+            if inputs[0] == 1 or inputs[1] == 1:
+                return 0
+
+            elif inputs[0] == "x" or inputs[1] == "x":
+                return "x"
+
+            elif (inputs[0] == "D" and inputs[1] == "~D") or (
+                inputs[0] == "~D" and inputs[1] == "D"
+            ):
+                return 0
+            ## modification: this case was added as this no longer remains D-frontier
+
+            elif inputs[0] == "~D" or inputs[1] == "~D":
+                return "D"
+            # modification: this case was NOT considered earlier
+
+            elif inputs[0] == "D" or inputs[1] == "x":
+                return "~D"
+            # modification: this case was NOT considered earlier
+
+            return 1 - (inputs[0] | inputs[1])
+            # modification: return ((1-inputs[0])&(1-inputs[1]))
+
+        elif gate == "DFF":
+            # Assuming the DFF captures input "D" on clock "C" (rising edge), we'll just return the value of D
+            return inputs[1]
+
+        elif gate == "DFFSR":
+            # DFFSR logic, simplified for now:
+            # S = Set, R = Reset, C = Clock, D = Data
+            # We'll assume positive logic, i.e., S=1 sets Q to 1, R=1 resets Q to 0, otherwise D determines Q.
+            if inputs[1] == 1:
+                return 1
+            elif inputs[2] == 1:
+                return 0
+            else:
+                return inputs[3]
+
+        else:
+            raise ValueError(f"Unknown gate: {gate}")
 
 
 def get_gate_params(gate):

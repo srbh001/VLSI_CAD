@@ -4,8 +4,13 @@ import sys
 from enum import Enum
 from collections import defaultdict
 import json
+import copy
 
 import textwrap
+
+
+from atpg.parser import Parser
+
 
 inversion = {"D": "~D", "~D": "D", "x": "x"}
 
@@ -15,6 +20,12 @@ class Objective:
         self.Gate_No = gate_no
         self.Value = value
         self.Fault = fault
+
+
+class Fault:
+    def __init__(self, gate_no, error):
+        self.gate_no = gate_no
+        self.error = error
 
 
 class ATPG:
@@ -53,7 +64,13 @@ class ATPG:
     """
 
     def __init__(
-        self, gate_level_map, gates_map, wires_map, primary_inputs, primary_outputs
+        self,
+        gate_level_map,
+        gates_map,
+        wires_map,
+        primary_inputs,
+        primary_outputs,
+        state_vars,
     ):
         self.gate_level_map = gate_level_map
         self.gates_map = gates_map
@@ -64,13 +81,21 @@ class ATPG:
         self.PI = primary_inputs
         self.PO = primary_outputs
         self.max_levels = max([i for i in self.gate_level_map])
+        self.state_vars = state_vars
 
         for wire in self.wires_map:
             self.wires_val[wire] = "x"
 
-    def get_objective(self, gate_type, gate_no, gate_inputs, objective):
+    def get_objective(self, gate_no, error):
         """Returns the objective for the gate"""
-        pass
+
+        if error == "D":
+            objective = Objective(gate_no, "1", "D")
+        elif error == "~D":
+            objective = Objective(gate_no, "1", "D")
+        else:
+            raise ValueError("[ERROR]: Invalid Error Type: ", error)
+        return objective
 
     def backtrace(self, objective: Objective):
         """
@@ -170,152 +195,28 @@ class ATPG:
                     cs_gates.extend(cs_gates_to_add)
         return False
 
-    @staticmethod
-    def evaluate_gate(gate, inputs=[]):
-        """
-        Evaluate the output of a single gate given its inputs.
-        Also, supports the 'x', 'D', or '~D' state for the input.
-        """
-
-        if gate == "BUF":
-            return inputs[0]
-
-        elif gate == "NOT":
-            if inputs[0] == "x" or inputs[0] == "D" or inputs[0] == "~D":
-                return inversion[inputs[0]]
-
-            return 1 - inputs[0]
-
-        elif gate == "NAND":
-            if inputs[0] == 0 or inputs[1] == 0:
-                return 1
-
-            elif inputs[0] == "x" or inputs[1] == "x":
-                if "D" == inputs[0] or "D" == inputs[1]:
-                    return "~D"
-                return "x"
-
-            elif inputs[0] == "D" or inputs[1] == "D":
-                return "D"  # already took care of case where it is independent of D.
-
-            elif inputs[0] == "~D" or inputs[1] == "~D":
-                return "D"
-
-            return 1 - (inputs[0] & inputs[1])
-
-        elif gate == "AND":
-            if inputs[0] == 0 or inputs[1] == 0:
-                return 0
-
-            elif inputs[0] == "D" or inputs[1] == "D":
-                return "D"
-
-            elif inputs[0] == "x" or inputs[1] == "x":
-                return "x"
-
-            elif inputs[0] == "~D" or inputs[1] == "~D":
-                return "~D"  # only possible other input is 1
-
-            return inputs[0] & inputs[1]
-
-        elif gate == "OR":
-            if inputs[0] == 1 or inputs[1] == 1:
-                return 1
-
-            elif inputs[0] == "~D" or inputs[1] == "~D":
-                return "~D"
-
-            elif inputs[0] == "x" or inputs[1] == "x":
-                return "x"
-
-            elif inputs[0] == "D" or inputs[1] == "x":
-                return "D"
-
-            return 0
-
-        elif gate == "XOR":
-            if inputs[0] == "x" or inputs[1] == "x":
-                return "x"
-
-            elif inputs[0] == "D":
-                if inputs[1] == 1:
-                    return "~D"
-                elif inputs[1] == 0:
-                    return "D"
-                elif inputs[1] == "D":
-                    return 0
-                elif inputs[1] == "~D":
-                    return 1
-            elif inputs[1] == "D":
-                if inputs[0] == 1:
-                    return "~D"
-                elif inputs[0] == 0:
-                    return "D"
-                elif inputs[0] == "D":
-                    return 0
-                elif inputs[0] == "~D":
-                    return 1
-
-            elif inputs[1] == "~D":
-                if inputs[0] == 1:
-                    return "D"
-                elif inputs[0] == 0:
-                    return "~D"
-                elif inputs[0] == "D":
-                    return 1
-                elif inputs[0] == "~D":
-                    return 0
-
-            elif inputs[0] == "~D":
-                if inputs[1] == 1:
-                    return "D"
-                elif inputs[1] == 0:
-                    return "~~D"
-                elif inputs[1] == "D":
-                    return 1
-                elif inputs[1] == "~D":
-                    return 0
-
-            return inputs[0] ^ inputs[1]
-
-        elif gate == "NOR":
-            if inputs[0] == 1 or inputs[1] == 1:
-                return 0
-            elif inputs[0] == "x" or inputs[1] == "x":
-                return "x"
-            elif input[0] == 0:
-                if input[1] == "D":
-                    return "~D"
-                elif input[1] == "~D":
-                    return "D"
-            elif input[1] == 0:
-                if input[0] == "D":
-                    return "~D"
-                elif input[0] == "~D":
-                    return "D"
-
-            return 1 - (inputs[0] | inputs[1])
-
-        elif gate == "DFF":
-            # Assuming the DFF captures input "D" on clock "C" (rising edge), we'll just return the value of D
-            return inputs[1]
-
-        elif gate == "DFFSR":
-            # DFFSR logic, simplified for now:
-            # S = Set, R = Reset, C = Clock, D = Data
-            # We'll assume positive logic, i.e., S=1 sets Q to 1, R=1 resets Q to 0, otherwise D determines Q.
-            if inputs[1] == 1:
-                return 1
-            elif inputs[2] == 1:
-                return 0
-            else:
-                return inputs[3]
-
-        else:
-            raise ValueError(f"Unknown gate: {gate}")
-
     def generate_test_vector(self, fault_location, fault_value):
         """Generate a test vector to detect a fault at the specified location."""
+        pass
+
+    def implication_with_fault(self, fault, pi_values):
+        """
+        Implication with fault: Propagate the fault to the primary outputs to determine if the fault is detectable.
+
+        """
+
+        dict_inputs = pi_values.copy()
+        primary_inputs = self.PI
+        dict_inputs[fault.gate_no] = fault.error
+        gate_level_map = copy.deepcopy(self.gate_level_map)
+        gates_map = copy.deepcopy(self.gates_map)
+
+        state_vars = self.state_vars
+
+        simulated_values = Parser.evaluate_graph(
+            primary_inputs, gate_level_map, gates_map, dict_inputs, state_vars
+        )
+        print("[INFO]: Simulated Values: ", simulated_values)
 
     def __repr__(self):
         debug_info = [
