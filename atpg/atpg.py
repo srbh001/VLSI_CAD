@@ -195,41 +195,95 @@ class ATPG:
                     cs_gates.extend(cs_gates_to_add)
         return False
 
-    # def generate_test_vector(self, fault_location, fault_value):
-    #     """Generate a test vector to detect a fault at the specified location."""
-    #
-    #     fault = Fault(fault_location, fault_value)
-    #     pi_values = {}
-    #     for i in self.PI:
-    #         pi_values[i] = "x"
-    #
-    #     po_values = {}
-    #     for i in self.PO:
-    #         po_values[i] = "x"
-    #
-    #     pi_stack = []
-    #     objectives = {}
-    #     while x_path_check(fault_location):
-    #         pis = self.backtrace(fault_location)
-    #         value = "1" if D else "0"
-    #         objectives[fault_location] = value
-    #
-    #         for i in pis:
-    #             pi_stack.push({})
-    #             new_pi_values = pi_values
-    #             new_pi_values[i] = "1"
-    #
-    #             simulated_values = implication_with_fault(fault, new_pi_values)
-    #             if simulated_values[fault_location] == "x":
-    #
-    #             if simulated_values[fault_location] == value:
-    #                 pi_values[i] = "1"
-    #                 # Fault was sensitized here at some values
-    #                 break
-    #
-    # def sensitize_fault(self, objectives):
+    def try_sensitize(self, fault, fault_location, pi_values, pis, value, i=0):
+        """
+        Recursively try to sensitize the fault by assigning '1' and '0' to the inputs.
 
-    def implication_with_fault(self, fault, pi_values):
+        Args:
+            fault (Fault): The fault object to be sensitized.
+            fault_location (str): The location of the fault in the circuit.
+            pi_values (dict): Dictionary of current primary input values.
+            pis (list): List of primary inputs to test from the backtrace.
+            value (str): The desired value at the fault location ('1' for 'D', '0' for '~D').
+            i (int): The current index of the primary input to process (default is 0).
+
+        Returns:
+            dict: Updated pi_values if fault is sensitized, None otherwise.
+        """
+        # Base case: If we have processed all inputs, return None (no solution found)
+
+        print("[INFO]: Try-Sensitize: current PIs vals", pi_values)
+        print("[INFO]: Fault Location and Value: ", fault_location, value)
+        if i >= len(pis):
+            return None
+
+        input_pi = pis[i]
+
+        # Try setting the PI to "1" first
+        new_pi_values = pi_values.copy()
+        new_pi_values[input_pi] = "1"
+
+        simulated_values = self.implication_with_fault(new_pi_values, fault=None)
+
+        if str(simulated_values[fault_location]) == value:
+            pi_values[input_pi] = "1"
+            return pi_values  # Return the updated pi_values
+        elif simulated_values[fault_location] == "x":
+            pi_values = self.try_sensitize(
+                fault, fault_location, new_pi_values, pis, value, i + 1
+            )
+            if pi_values:
+                return pi_values
+
+        new_pi_values[input_pi] = "0"
+        simulated_values = self.implication_with_fault(new_pi_values, fault=None)
+
+        if str(simulated_values[fault_location]) == value:
+            pi_values[input_pi] = "0"
+            return pi_values
+        elif simulated_values[fault_location] == "x":
+            pi_values = self.try_sensitize(
+                fault, fault_location, new_pi_values, pis, value, i + 1
+            )
+            if pi_values:
+                return pi_values
+
+        return None
+
+    def sensitize_fault(self, fault_location, fault_value):
+        """
+        Generate a test vector to sensitize a fault at the specified location.
+
+        Args:
+            fault_location (str): The wire or gate where the fault is located.
+            fault_value (str): The value of the fault (e.g., "D" or "~D").
+
+        Returns:
+            dict: A dictionary containing the primary input values needed to sensitize the fault.
+        """
+        fault = Fault(fault_location, fault_value)
+
+        pi_values = {pi: "x" for pi in self.PI}
+
+        po_values = {po: "x" for po in self.PO}
+
+        objectives = {}
+
+        if self.x_path_check(fault_location):
+            pis = self.backtrace(
+                Objective(
+                    fault_location, fault_value, "D" if fault_value == "D" else "~D"
+                )
+            )
+
+            value = "1" if fault_value == "D" else "0"
+            objectives[fault_location] = value
+
+            pi_values = self.try_sensitize(fault, fault_location, pi_values, pis, value)
+
+        return pi_values
+
+    def implication_with_fault(self, pi_values, fault=None):
         """
         Implication with fault: Propagate the fault to the primary outputs to determine if the fault is detectable.
 
@@ -237,7 +291,8 @@ class ATPG:
 
         dict_inputs = pi_values.copy()
         primary_inputs = self.PI
-        dict_inputs[fault.gate_no] = fault.error
+        if fault is not None:
+            dict_inputs[fault.gate_no] = fault.error
         gate_level_map = copy.deepcopy(self.gate_level_map)
         gates_map = copy.deepcopy(self.gates_map)
 

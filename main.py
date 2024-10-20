@@ -86,10 +86,17 @@ def run_tests(parser):
         def test_imply_with_fault(self):
             fault = Fault("_03_", "D")
             pi_values = {"a": "1", "b": "0", "carryin": "0"}
-            output = atpg.implication_with_fault(fault, pi_values)
+            output = atpg.implication_with_fault(pi_values, fault)
             print(f"[INFO]: Imply with fault result: {output}")
 
             self.assertEqual(1, 1, "[TEST]: Imply with fault should return 1")
+
+        def test_sensitization(self):
+            fault = Fault("_01_", "D")
+            pi_values = {"a": "1", "b": "0", "carryin": "0"}
+            sensitization = atpg.sensitize_fault("_03_", "D")
+            print(f"[INFO]: Sensitization result: {sensitization}")
+            self.assertTrue(sensitization, "[TEST]: Sensitization should return True")
 
     unittest.TextTestRunner().run(unittest.TestLoader().loadTestsFromTestCase(TestATPG))
 
