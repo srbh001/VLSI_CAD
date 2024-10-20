@@ -43,7 +43,7 @@ def run_tests(parser):
 
     atpg = ATPG(gate_level_map, gates_map, wires_map, primary_inputs, primary_outputs)
 
-    objective = Objective("_02_", "1", "D")
+    objective = Objective("_01_", "1", "D")
 
     class TestATPG(unittest.TestCase):
         def test_x_path_check(self):
