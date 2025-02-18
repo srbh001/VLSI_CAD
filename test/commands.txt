@@ -1,0 +1,13 @@
+read -vlog2k filename.v
+hierarchy -top counter
+proc
+opt
+fsm
+opt
+memory
+opt
+synth -top counter
+dfflibmap -liberty cmos_cells.lib
+abc -liberty cmos_cells.lib
+clean
+write_verilog out2.v

@@ -10,6 +10,7 @@ import textwrap
 
 
 from atpg.parser import Parser
+from atpg.utils import GIN, ERR, TST
 
 
 inversion = {"D": "~D", "~D": "D", "x": "x"}
@@ -30,37 +31,23 @@ class Fault:
 
 class ATPG:
     """
-    The ATPG (Automatic Test Pattern Generation) class implements the PODEM
-    (Path-Oriented Decision Making) algorithm to generate test vectors for fault
-    detection in digital circuits.
+    Implements the PODEM (Path-Oriented Decision Making) algorithm for generating
+    test vectors in digital circuits.
 
     Attributes:
-        gate_level_map (list): A list of gates organized in levelized order
-        based on their evaluation dependencies.
-
-        gates_map (dict): A mapping of gate numbers to their respective gate
-        types and attributes.
-
-        wires_map (dict): A mapping of wire names or numbers to the connections
-        in the circuit.
+        gate_level_map (list): Gates organized in evaluation order.
+        gates_map (dict): Maps gate numbers to their types and attributes.
+        wires_map (dict): Maps wires to circuit connections.
+        PI (list): Primary inputs.
+        PO (list): Primary outputs.
 
     Methods:
-        __init__: Initializes the ATPG class with levelized gates, a gate map,
-        and a wire map.
-
-        get_objective: Determines the fault detection objective for a given
-        gate as part of the PODEM algorithm.
-
-        backtrace: Implements the backtrace step of the PODEM algorithm,
-        tracing from a fault objective to determine the required input
-        assignments to achieve fault activation and propagation.
-
-        x_path_check: Checks for the existence of an X-path, a path that may
-        allow fault propagation.
-
-        evaluate_gate: Computes the output of a given
-        gate based on its inputs, supporting five-valued logic (1, 0, D, ~D,
-        x).
+        get_objective: Determines the fault detection objective for a gate.
+        backtrace: Traces from a fault to find required input assignments.
+        x_path_check: Checks for a fault propagation path.
+        try_sensitize: Attempts to sensitize a fault.
+        implication_with_fault: Propagates fault through circuit.
+        propagate_values_to_pos: Attempts fault propagation to primary outputs.
     """
 
     def __init__(
@@ -94,7 +81,7 @@ class ATPG:
         elif error == "~D":
             objective = Objective(gate_no, "1", "~D")
         else:
-            raise ValueError("[ERROR]: Invalid Error Type: ", error)
+            raise ValueError(ERR, "ATPG.get_objective: Invalid Error Type: ", error)
         return objective
 
     def backtrace(self, objective: Objective):
@@ -217,8 +204,10 @@ class ATPG:
         if not results:
             results = []
 
-        print("[INFO]: Try-Sensitize: current PIs vals", pi_values)
-        print("[INFO]: Fault Location and Value: ", fault_location, value)
+        print(GIN, "ATPG.try_sensitize: current PIs vals", pi_values)
+        print(
+            GIN, "ATPG.try_sensitize: Fault Location and Value: ", fault_location, value
+        )
         if i >= len(pis):
             return None
 
@@ -234,14 +223,13 @@ class ATPG:
             pi_values[input_pi] = "1"
             pi_values_to_add = [pi_values]
             results.extend(pi_values_to_add)
-            # return pi_values  # Return the updated pi_values
+
         elif simulated_values[fault_location] == "x":
             pi_values = self.try_sensitize(
                 fault, fault_location, new_pi_values, pis, value, i + 1, results
             )
             if pi_values:
                 results.extend(pi_values)
-                # return pi_values
 
         new_pi_values[input_pi] = "0"
         simulated_values = self.implication_with_fault(new_pi_values, fault=None)
@@ -309,7 +297,7 @@ class ATPG:
         simulated_values = Parser.evaluate_graph(
             primary_inputs, gate_level_map, gates_map, dict_inputs, state_vars
         )
-        print("[INFO]: Simulated Values: ", simulated_values)
+        print(GIN, "ATPG.implication_with_fault: Simulated Values: ", simulated_values)
 
         return simulated_values
 
@@ -322,10 +310,17 @@ class ATPG:
 
         for inputs in sensitization_inputs:
             if self.try_propagate_to_pos(fault, inputs):
-                print("[INFO]: Fault successfully propagated with inputs:", inputs)
+                print(
+                    GIN,
+                    "ATPG.propagate_values_to_pos: Fault successfully propagated with inputs:",
+                    inputs,
+                )
                 return inputs  # Return the successful input configuration
 
-        print("[ERROR]: Unable to propagate fault to primary outputs")
+        print(
+            ERR,
+            "ATPG.propagate_values_to_pos: Unable to propagate fault to primary outputs",
+        )
         return None  # If propagation is not successful
 
     def try_propagate_to_pos(self, fault, inputs):
@@ -391,3 +386,126 @@ class ATPG:
         )
 
         return indented_info
+
+
+class SequentialATPG(ATPG):
+    def __init__(
+        self,
+        gate_level_map,
+        gates_map,
+        wires_map,
+        primary_inputs,
+        primary_outputs,
+        state_vars,
+    ):
+        self.sequentialATPG = ATPG(
+            gate_level_map,
+            gates_map,
+            wires_map,
+            primary_inputs,
+            primary_outputs,
+            state_vars,
+        )
+        self.state_vars = state_vars
+
+        self.circuit = self.unroll_circuit()
+
+    @staticmethod
+    def sequential_depth(gate_level_map, gates_map):
+        """Calculate the depth of a sequential circuit"""
+        max_levels = 0
+
+        for level in gate_level_map:
+            for gate in gate_level_map[level]:
+                if gates_map[gate]["gate_type"] == "DFF":
+                    max_levels = max(max_levels, level)
+                    continue
+
+        sequential_depth = max_levels + 1
+        return sequential_depth
+
+    def unroll_circuit(self):
+        """Unroll the sequential circuit for ATPG"""
+        seqATPG = self.sequentialATPG
+
+        gate_level_map = seqATPG.gate_level_map
+        gates_map = seqATPG.gates_map
+        wires_map = seqATPG.wires_map
+        state_vars = self.state_vars
+
+        dff_gates_level = {}
+        dff_gates = [i for i in state_vars]
+
+        for level, gates in gate_level_map.items():
+            for gate in gates:
+                if gate in dff_gates:
+                    dff_gates_level[gate] = level
+
+        sequential_depth = self.sequential_depth(gate_level_map, gates_map)
+
+        new_wires_map = {}
+        new_gates_map = {}
+
+        max_gate_no = max([int(gate) for gate in gates_map])
+
+        for wire in wires_map:
+            new_wires_map[wire] = wires_map[wire]
+            for i in range(sequential_depth):
+                new_wire_dict = {}
+                for gate in wires_map[wire]:
+                    new_wire_dict[str(int(gate) + max_gate_no * (i + 1))] = wires_map[
+                        wire
+                    ][gate]
+                new_wires_map[wire + f"_{i}"] = new_wire_dict
+
+        for gate in gates_map:
+            new_gates_map[gate] = gates_map[gate]
+            for i in range(sequential_depth):
+                new_dict = {}
+                for param in gates_map[gate]:
+                    if param != "gate_type" and param != "level":
+                        new_dict[param] = [
+                            wire + f"_{i}" for wire in gates_map[gate][param]
+                        ]
+                new_gates_map[int(gate) + max_gate_no * (i + 1)] = new_dict
+
+        new_wires_map["dummy_input"] = {}
+        new_wires_map["dummy_output"] = {"-1": "input"}
+        new_gates_map[-1] = {
+            "gate_type": "dummy",
+            "inputs": [],
+            "outputs": ["dummy_output"],
+        }
+
+        # Re-wire the circuit
+        for gate in dff_gates:
+            next_inputs = copy.deepcopy(new_gates_map[gate]["inputs"])
+            if not new_gates_map[gate]["inputs"]:
+                new_gates_map[gate]["inputs"] = ["dummy_input"]
+            elif "dummy_input" not in new_gates_map[gate]["inputs"]:
+                new_gates_map[gate]["inputs"].append("dummy_input")
+            new_wires_map["dummy_input"][str(gate)] = "input"
+
+            for i in range(sequential_depth):
+                next_gate = int(gate) + max_gate_no * (i + 1)
+
+                if next_gate not in new_gates_map:
+                    raise KeyError(f"Gate {next_gate} not found in new_gates_map.")
+
+                temp_next_inputs = copy.deepcopy(new_gates_map[next_gate]["inputs"])
+
+                new_gates_map[next_gate]["inputs"] = next_inputs
+
+                if i == sequential_depth - 1:
+                    for input in next_inputs:
+                        if str(next_gate) in new_wires_map[input]:
+                            new_wires_map[input].pop(str(next_gate))
+                        new_wires_map[input]["-1"] = "input"
+                        new_gates_map[-1]["inputs"].append(input)
+
+                next_inputs = temp_next_inputs
+
+        print(GIN, "SeqATPG.unroll_circuit: new_wires_map: \n", new_wires_map)
+        print(GIN, "SeqATPG.unroll_circuit: new_gates_map: \n", new_gates_map)
+
+        return new_gates_map, new_wires_map

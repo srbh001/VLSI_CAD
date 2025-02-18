@@ -10,6 +10,8 @@ import json
 import textwrap
 import copy
 
+from .utils import print_structured_design, GIN, ERR
+
 
 gate = Enum("GATE", ["BUF", "NAND", "NOR", "OR", "NOT", "DFF", "DFFSR"])
 
@@ -56,7 +58,7 @@ class Parser:
 
             with open(f"{filepath}.cleaned", "w") as f:
                 f.write(code_str)
-                print("[INFO]: Successfully cleaned the code.")
+                print(GIN, "Parser.read_parse_file: Successfully cleaned the code.")
 
             # ------------------- PARSING STARTS ----------------------------
 
@@ -114,10 +116,10 @@ class Parser:
             self.INPUTS = INPUTS
             self.OUTPUTS = OUTPUTS
 
-            print("-" * 10, "GATES_MAP", "_" * 10)
-            print(json.dumps(self.gates_map, indent=4))
-            print("-" * 10, "WIRES_MAP", "_" * 10)
-            print(json.dumps(self.wires_map, indent=4))
+            # print("-" * 10, "GATES_MAP", "_" * 10)
+            # print(json.dumps(self.gates_map, indent=4))
+            # print("-" * 10, "WIRES_MAP", "_" * 10)
+            # print(json.dumps(self.wires_map, indent=4))
 
             copied_wires_map = copy.deepcopy(wires_map)
             copied_gates_map = copy.deepcopy(gates_map)
@@ -125,14 +127,24 @@ class Parser:
                 inputs, outputs, copied_gates_map, copied_wires_map
             )
 
+            print_structured_design(
+                gates_map=gates_map,
+                wires_map=wires_map,
+                level_map=self.gate_level_map,
+            )
+
     def simulate(self):
-        print("--" * 20)
-        print("\n\n Netlist Successfully Parsed.\n Entering Simulation...")
-        print("\n   Options Only Enter 0 or 1 for inputs")
-        print("   HELP: Enter q to exit\n\n")
+        print(GIN, "Parser.simulate: Starting Simulation.")
+        print("   ", "==" * 20)
+        print("     Netlist Successfully Parsed.")
+        print("     Entering Simulation...")
+        print("       Options Only Enter 0 or 1 for inputs")
+        print("     HELP: Enter q to exit")
+        print("   ", "==" * 20, end="\n\n")
+
         dict_inputs = {}
         if not self.INPUTS:
-            print("[ERROR]: Invalid Graph. Error parsing the graph.")
+            print(ERR, "Invalid Graph. Error parsing the graph.")
         while True:
             for i in self.INPUTS:
                 inp = input(f"Enter the input {i}: ")
@@ -176,7 +188,6 @@ class Parser:
                     "gate_type": gate_type,
                     "inputs": [],
                     "outputs": [],
-                    "inouts": [],
                 }
 
                 gate_params = get_gate_params(gate_type)
@@ -194,9 +205,6 @@ class Parser:
                         elif pin_type in gate_params["outputs"]:
                             gates_dict[gate_no]["outputs"].append(wire_name)
                             wires_dict[wire_name][str(gate_no)] = "output"
-                        elif pin_type in gate_params.get("inouts", []):
-                            gates_dict[gate_no]["inouts"].append(wire_name)
-                            wires_dict[wire_name][str(gate_no)] = "inout"
 
                     if ");" in code[j]:
                         break
@@ -211,15 +219,12 @@ class Parser:
     @staticmethod
     def level_graph(inputs, outputs, gates_dict, wires_map):
         """Returns the levelized map"""
+        # FIXME: Bug: Doesn't work where primary outputs are inputs to other gates.
         gate_level_map = {}
 
-        print("--" * 10)
-        print("[INFO]: LEVELISING THE GATES.\n")
+        print(GIN, "Parser.level_graph: LEVELISING THE GATES.")
         level = 0
         while outputs:
-            # print("[LEVEL]:     Current Outputs: ", outputs)
-            # print("[LEVEL]:     Current Inputs: ", inputs)
-
             # Iterate over a copy of inputs to avoid modifying the list while iterating
             inputs_to_delete = []
             for input_wire in list(inputs):
@@ -285,10 +290,10 @@ class Parser:
 
             inputs.extend(new_inputs)
 
-        print("[INFO]: Parser.level_graph : Final Levelised Gates Map")
-        non_idented_output = json.dumps(gate_level_map, indent=4)
-        print(textwrap.indent(non_idented_output, "        "))
-        print("===" * 10)
+        print(GIN, "Parser.level_graph : Gates Levelised Successfully.")
+        # non_idented_output = json.dumps(gate_level_map, indent=4)
+        # print(textwrap.indent(non_idented_output, "        "))
+        # print("===" * 10)
 
         return gate_level_map
 
@@ -370,9 +375,12 @@ class Parser:
                             wires[go[0]] = d_prev
                         else:
                             wires[go[0]] = d_prev
+                    if gtype == "DummyGate":
+                        # Assign a dummy value to the output so that it doesn't interfere during PODEM.
+                        wires[go[0]] = "S"
 
                 print("   " * (level + 2) + f"{go[0]} :   {wires[go[0]]}")
-        print(wires)
+        # print(wires)
         return wires
 
     @staticmethod
@@ -402,7 +410,6 @@ class Parser:
                 return 1
 
             elif inputs[0] == "x" or inputs[1] == "x":
-
                 return "x"
 
             elif (inputs[0] == "D" and inputs[1] == "~D") or (
@@ -587,6 +594,14 @@ class Parser:
 
         else:
             raise ValueError(f"Unknown gate: {gate}")
+
+    def is_sequential(self):
+        """Check if the circuit has any sequential elements."""
+
+        for gate in self.gates_map:
+            if self.gates_map[gate]["gate_type"] in ["DFF", "DFFSR"]:
+                return True
+        return False
 
 
 def get_gate_params(gate):

@@ -1,5 +1,7 @@
 import unittest
-from atpg import ATPG, Objective, Parser, Fault
+
+import copy
+from atpg import SequentialATPG, ATPG, Objective, Parser, Fault, GIN, ERR, TST
 
 
 def main():
@@ -18,16 +20,16 @@ def main():
     choice = input("Enter your choice (1 or 2): ")
 
     if choice == "1":
-        print("[INFO]: Running simulation...")
+        print(GIN, "Running simulation...")
         parser.simulate()
-        print("[INFO]: Simulation completed.")
+        print(GIN, "Simulation completed.")
 
     elif choice == "2":
-        print("[INFO]: Running tests...")
+        print(GIN, "Running tests...")
         run_tests(parser)
 
     else:
-        print("[ERROR]: Invalid choice. Please choose 1 or 2.")
+        print(ERR, "Invalid choice. Please choose 1 or 2.")
         return
 
 
@@ -42,6 +44,13 @@ def run_tests(parser):
     primary_outputs = parser.OUTPUTS
     state_vars = parser.state_vars
 
+    gate_level_map_seq = copy.deepcopy(parser.gate_level_map)
+    gates_map_seq = copy.deepcopy(parser.gates_map)
+    wires_map_seq = copy.deepcopy(parser.wires_map)
+    primary_inputs_seq = copy.deepcopy(parser.INPUTS)
+    primary_outputs_seq = copy.deepcopy(parser.OUTPUTS)
+    state_vars_seq = copy.deepcopy(parser.state_vars)
+
     atpg = ATPG(
         gate_level_map,
         gates_map,
@@ -49,6 +58,14 @@ def run_tests(parser):
         primary_inputs,
         primary_outputs,
         state_vars,
+    )
+    seqATPG = SequentialATPG(
+        gate_level_map_seq,
+        gates_map_seq,
+        wires_map_seq,
+        primary_inputs_seq,
+        primary_outputs_seq,
+        state_vars_seq,
     )
 
     objective = Objective("_02_", "1", "D")
@@ -58,17 +75,17 @@ def run_tests(parser):
             """Test the x_path_check function."""
             print("\n[TEST]: Testing X-path check...")
             result = atpg.x_path_check("_02_")
-            print(f"[INFO]: X-path check result before modification: {result}")
-            self.assertTrue(result, "[TEST]: X-path check should return True initially")
+            print(GIN, f"X-path check result before modification: {result}")
+            self.assertTrue(result, f"{TST} X-path check should return True initially")
 
             # Modify wire values and test again
             atpg.wires_val["y"] = "1"
             atpg.wires_val["carryout"] = "1"
             result_after = atpg.x_path_check("_02_")
-            print(f"[INFO]: X-path check result after modification: {result_after}")
+            print(GIN, f"X-path check result after modification: {result_after}")
             self.assertFalse(
                 result_after,
-                "[TEST]: X-path check should return False after modification",
+                f"{TST} X-path check should return False after modification",
             )
 
         def test_backtrace(self):
@@ -103,6 +120,14 @@ def run_tests(parser):
             test_vector = atpg.propagate_values_to_pos(fault, sensitization)
 
             self.assertTrue(test_vector, "[TEST]: Test vector should not be empty")
+
+        def test_seq_atpg_unroll(self):
+            """Test the sequential ATPG function."""
+            print("\n[TEST]: Testing sequential ATPG function...")
+            seqATPG.unroll_circuit()
+            self.assertTrue(
+                seqATPG.state_vars, "[TEST]: Test vectors should not be empty"
+            )
 
     unittest.TextTestRunner().run(unittest.TestLoader().loadTestsFromTestCase(TestATPG))
 
